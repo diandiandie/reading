@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>小学生读书打卡</title>
+  <style>
+    :root {
+      --ink: #1f2933;
+      --muted: #65758b;
+      --line: #d9e2ec;
+      --soft: #f4f7fb;
+      --paper: #fff;
+      --brand: #1f7a8c;
+      --brand-dark: #155e6b;
+      --accent: #d97706;
+      --mint: #2f9e7e;
+      --danger: #c2413a;
+      --shadow: 0 16px 36px rgba(31, 41, 51, 0.12);
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: linear-gradient(180deg, #edf7f8 0%, #f7f9fc 48%, #fff 100%);
+      min-height: 100vh;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 11px 12px;
+      min-height: 44px;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(31,122,140,.12); }
+    textarea { min-height: 86px; resize: vertical; }
+    input[type="checkbox"] { width: auto; min-height: 0; accent-color: var(--brand); }
+    label { display: grid; gap: 7px; color: #324255; font-weight: 800; font-size: 14px; }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+    .app-shell { min-height: 100vh; }
+
+    /* Toast */
+    .toast-wrap { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 10px; }
+    .toast { padding: 12px 18px; border-radius: 8px; color: #fff; font-weight: 700; animation: slideIn .3s ease; min-width: 200px; box-shadow: 0 6px 20px rgba(0,0,0,.15); }
+    .toast.success { background: var(--mint); }
+    .toast.error { background: var(--danger); }
+    .toast.info { background: var(--brand); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    .login-page { min-height: 100vh; display: grid; place-items: center; padding: 28px; visibility: hidden; }
+    #app.ready:not(.signed-in) .login-page { visibility: visible; }
+    .login-layout {
+      width: min(1080px, 100%);
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      background: rgba(255,255,255,.9);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .brand-panel {
+      min-height: 560px;
+      padding: 44px;
+      color: #fff;
+      background:
+        linear-gradient(rgba(18,74,82,.75), rgba(31,122,140,.74)),
+        url("") center/cover;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .brand-mark {
+      width: 54px; height: 54px; display: grid; place-items: center;
+      border: 2px solid rgba(255,255,255,.72); border-radius: 8px;
+      font-size: 30px; font-weight: 900; background: rgba(255,255,255,.13);
+    }
+    .brand-panel h1 { margin: 28px 0 16px; font-size: clamp(34px, 5vw, 58px); line-height: 1.05; }
+    .brand-panel p { max-width: 560px; margin: 0; color: rgba(255,255,255,.9); font-size: 18px; line-height: 1.8; }
+    .feature-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 34px; }
+    .feature-tile { border: 1px solid rgba(255,255,255,.28); padding: 14px; border-radius: 8px; background: rgba(255,255,255,.12); min-height: 92px; }
+    .feature-tile strong { display: block; margin-bottom: 6px; }
+    .feature-tile span { color: rgba(255,255,255,.82); line-height: 1.45; font-size: 13px; }
+    .login-panel { padding: 40px; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+    .login-panel h2, .section-title h2, .panel-title h3 { margin: 0; }
+    .form-grid { display: grid; gap: 14px; }
+    .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 4px; border-radius: 8px; background: var(--soft); border: 1px solid var(--line); }
+    .auth-tab { min-height: 38px; border-radius: 8px; color: var(--muted); background: transparent; font-weight: 900; }
+    .auth-tab.active { color: #fff; background: var(--brand); }
+    
+    
+    .btn {
+      min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 14px; border-radius: 8px; color: #fff; background: var(--brand); font-weight: 900; white-space: nowrap;
+      transition: background .2s;
+    }
+    .btn:hover { background: var(--brand-dark); }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .btn.secondary { color: var(--brand-dark); background: #e6f4f6; }
+    .btn.secondary:hover { background: #d4ecef; }
+    .btn.warn { background: var(--accent); }
+    .btn.warn:hover { background: #b86504; }
+    .btn.light { color: var(--ink); background: #fff; border: 1px solid var(--line); }
+    .btn.light:hover { background: var(--soft); }
+    .forgot-link { text-align: center; margin-top: 10px; font-size: 14px; }
+    .forgot-link a { color: var(--brand); text-decoration: none; }
+    .forgot-link a:hover { text-decoration: underline; }
+    .login-only { display: block; }
+    .btn.danger { background: var(--danger); }
+    .btn.danger:hover { background: #a3342d; }
+    .btn.sm { min-height: 32px; padding: 6px 10px; font-size: 13px; border-radius: 6px; }
+
+    .main-layout { display: none; min-height: 100vh; }
+    .signed-in .main-layout { display: grid; grid-template-columns: 252px 1fr; }
+    .signed-in .login-page { display: none; }
+    .sidebar {
+      background: #102a43; color: #fff; padding: 22px 16px;
+      display: flex; flex-direction: column; gap: 22px;
+      position: sticky; top: 0; height: 100vh;
+    }
+    .side-logo { display: flex; align-items: center; gap: 12px; padding: 6px 4px 14px; border-bottom: 1px solid rgba(255,255,255,.12); }
+    .side-logo span:first-child { width: 40px; height: 40px; border-radius: 8px; background: #f0b429; color: #102a43; display: grid; place-items: center; font-weight: 900; font-size: 22px; }
+    .org-name { font-size: 15px; font-weight: 900; word-break: break-word; }
+    .user-name { color: rgba(255,255,255,.68); font-size: 12px; margin-top: 2px; }
+    .nav-list { display: grid; gap: 8px; }
+    .nav-btn { width: 100%; color: rgba(255,255,255,.78); background: transparent; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 10px; text-align: left; font-weight: 900; transition: all .2s; }
+    .nav-btn.active, .nav-btn:hover { color: #102a43; background: #fff; }
+    .nav-icon { width: 22px; text-align: center; font-weight: 900; }
+    .content { min-width: 0; padding: 24px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; }
+    .section-title { display: flex; flex-direction: column; gap: 5px; }
+    .section-title h2 { font-size: clamp(24px, 4vw, 34px); }
+    .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .stat-card, .panel, .item-card { background: rgba(255,255,255,.94); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 22px rgba(31,41,51,.06); }
+    .stat-card { padding: 18px; min-height: 110px; }
+    .stat-card span { color: var(--muted); font-size: 13px; font-weight: 900; }
+    .stat-card strong { display: block; margin-top: 10px; font-size: 28px; }
+    .panel { padding: 18px; margin-bottom: 16px; }
+    .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .panel-title h3 { font-size: 18px; }
+    .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .item-card { padding: 16px; display: grid; gap: 13px; }
+    .item-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+    .item-head h3 { margin: 0 0 5px; font-size: 19px; }
+    .badge { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 9px; border-radius: 8px; background: #eef7f1; color: #236d55; font-size: 12px; font-weight: 900; white-space: nowrap; }
+    .badge.blue { color: var(--brand-dark); background: #e6f4f6; }
+    .badge.orange { color: #8a4b05; background: #fff3d6; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 13px; }
+    .progress-track { height: 10px; overflow: hidden; border-radius: 8px; background: #e8edf3; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--mint), var(--brand)); transition: width .4s; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-size: 13px; background: var(--soft); }
+    .thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .thumbs img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); cursor: pointer; transition: transform .2s; }
+    .thumbs img:hover { transform: scale(1.1); }
+    .empty { border: 1px dashed #b8c7d9; border-radius: 8px; padding: 26px; text-align: center; color: var(--muted); background: rgba(255,255,255,.72); }
+
+    .modal-backdrop { position: fixed; inset: 0; display: none; place-items: center; padding: 18px; background: rgba(16,42,67,.58); z-index: 10; }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: min(720px, 100%); max-height: 92vh; overflow: auto; background: #fff; border-radius: 8px; box-shadow: var(--shadow); border: 1px solid var(--line); }
+    .modal-header, .modal-footer { padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+    .modal-footer { border-top: 1px solid var(--line); border-bottom: 0; justify-content: flex-end; }
+    .modal-header h3 { margin: 0; font-size: 20px; }
+    .modal-body { padding: 18px; }
+    .close-btn { width: 38px; height: 38px; border-radius: 8px; color: var(--ink); background: var(--soft); font-size: 22px; line-height: 1; }
+
+    /* Loading overlay */
+    .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,.7); display: none; place-items: center; z-index: 50; }
+    .loading-overlay.show { display: grid; }
+    .spinner { width: 40px; height: 40px; border: 4px solid var(--line); border-top-color: var(--brand); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Image preview */
+    .img-preview-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; place-items: center; z-index: 60; cursor: pointer; }
+    .img-preview-backdrop.show { display: grid; }
+    .img-preview-backdrop img { max-width: 92vw; max-height: 92vh; border-radius: 8px; }
+
+    @media (max-width: 920px) {
+      .login-layout { grid-template-columns: 1fr; }
+      .brand-panel { min-height: 360px; padding: 30px; }
+      .feature-row, .stats-grid, .grid-two { grid-template-columns: 1fr; }
+      .signed-in .main-layout { grid-template-columns: 1fr; }
+      .sidebar { height: auto; position: static; padding: 14px; }
+      .nav-list { grid-template-columns: repeat(5, minmax(64px, 1fr)); overflow-x: auto; }
+      .nav-btn { justify-content: center; flex-direction: column; gap: 4px; min-height: 62px; font-size: 12px; }
+      .content { padding: 18px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+    }
+    @media (max-width: 560px) {
+      .login-page { padding: 12px; }
+      .login-panel, .brand-panel { padding: 22px; }
+      .feature-row { display: none; }
+      .toolbar, .actions, .modal-footer { width: 100%; }
+      .btn { flex: 1 1 auto; }
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <div class="toast-wrap" id="toastWrap"></div>
+    <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+    <div class="img-preview-backdrop" id="imgPreview" onclick="this.classList.remove('show')"><img id="imgPreviewSrc" alt="预览"></div>
+
+    <main class="login-page">
+      <section class="login-layout">
+        <div class="brand-panel">
+          <div>
+            <div class="brand-mark">读</div>
+            <h1>小学生读书打卡</h1>
+            <p>为家庭读书陪伴准备的打卡与奖励管理工具，家长可以添加孩子，并为每个孩子创建读书计划。</p>
+            <div class="feature-row">
+              <div class="feature-tile"><strong>账号登录</strong><span>手机号密码登录，家庭数据独立隔离。</span></div>
+              <div class="feature-tile"><strong>孩子计划</strong><span>按孩子、书名或任务目标创建。</span></div>
+              <div class="feature-tile"><strong>奖励兑换</strong><span>每个孩子独立统计奖励和兑换。</span></div>
+            </div>
+          </div>
+          <p>手机号注册后即可使用，每个家庭数据独立隔离，支持多孩子管理。</p>
+        </div>
+        <form id="loginForm" class="login-panel">
+          <div>
+            <h2>进入家庭空间</h2>
+            <p class="muted" id="authHint">已有账号只需输入手机号和密码。</p>
+          </div>
+          <div class="auth-tabs" role="tablist" aria-label="登录或注册">
+            <button class="auth-tab active" type="button" data-auth-mode="login">登录</button>
+            <button class="auth-tab" type="button" data-auth-mode="register">注册</button>
+          </div>
+          <div class="form-grid">
+            <label>手机号<input id="phone" required inputmode="tel" autocomplete="tel" placeholder="例如 13800000000"></label>
+            <label>密码<input id="password" required type="password" autocomplete="current-password" placeholder="请输入密码"></label>
+            <label class="register-only hidden">家庭名称<input id="familyName" placeholder="例如 琪琪家"></label>
+            <label class="register-only hidden">家长称呼<input id="parentName" placeholder="例如 妈妈、爸爸"></label>
+            <label class="register-only hidden">孩子姓名<input id="defaultChildName" placeholder="例如 琪琪"></label>
+          </div>
+          <button class="btn" id="authSubmitBtn" type="submit">登录</button>
+          <p class="forgot-link login-only"><a href="#" id="forgotLink">忘记密码？</a></p>
+        </form>
+
+        <!-- 忘记密码表单 -->
+        <form id="forgotForm" class="login-panel hidden">
+          <div>
+            <h2>重置密码</h2>
+            <p class="muted">输入注册手机号和新密码。</p>
+          </div>
+          <div class="form-grid">
+            <label>手机号<input id="resetPhone" required inputmode="tel" autocomplete="tel" placeholder="注册时的手机号"></label>
+            <label>新密码<input id="resetPassword" required type="password" autocomplete="new-password" placeholder="至少6位" minlength="6"></label>
+            <label>确认密码<input id="resetPassword2" required type="password" autocomplete="new-password" placeholder="再次输入新密码"></label>
+          </div>
+          <button class="btn" id="resetSubmitBtn" type="submit">重置密码</button>
+          <p class="forgot-link"><a href="#" id="backToLoginLink">返回登录</a></p>
+        </form>
+      </section>
+    </main>
+
+    <main class="main-layout">
+      <aside class="sidebar">
+        <div class="side-logo">
+          <span>读</span>
+          <div>
+            <div class="org-name" id="familyTitle">家庭</div>
+            <div class="user-name" id="userTitle">家长</div>
+          </div>
+        </div>
+        <nav class="nav-list" id="navList">
+          <button class="nav-btn active" data-view="dashboard"><span class="nav-icon">⌂</span><span>总览</span></button>
+          <button class="nav-btn" data-view="plans"><span class="nav-icon">□</span><span>计划</span></button>
+          <button class="nav-btn" data-view="checkins"><span class="nav-icon">✓</span><span>打卡</span></button>
+          <button class="nav-btn" data-view="rewards"><span class="nav-icon">￥</span><span>奖励</span></button>
+          <button class="nav-btn" data-view="children"><span class="nav-icon">人</span><span>孩子</span></button>
+        </nav>
+        <button class="btn light" id="changePasswordBtn" type="button">修改密码</button>
+        <button class="btn light" id="logoutBtn" type="button">退出登录</button>
+      </aside>
+
+      <section class="content">
+        <div class="topbar">
+          <div class="section-title">
+            <h2 id="viewTitle">总览</h2>
+            <span class="muted" id="viewSubtitle">今日读书情况、奖励余额和最近打卡。</span>
+          </div>
+          <div class="toolbar">
+            <button class="btn secondary" id="quickPlanBtn" type="button">新建计划</button>
+            <button class="btn" id="quickCheckinBtn" type="button">立即打卡</button>
+          </div>
+        </div>
+        <section id="dashboardView" class="view"></section>
+        <section id="plansView" class="view hidden"></section>
+        <section id="checkinsView" class="view hidden"></section>
+        <section id="rewardsView" class="view hidden"></section>
+        <section id="childrenView" class="view hidden"></section>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h3 id="modalTitle">标题</h3>
+        <button class="close-btn" id="modalClose" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      authMode: "login",
+      view: "dashboard",
+      me: null,
+      children: [],
+      plans: [],
+      checkins: [],
+      rewards: [],
+      redemptions: []
+    };
+    const viewMeta = {
+      dashboard: ["总览", "今日读书情况、奖励余额和最近打卡。"],
+      plans: ["计划", "按孩子和书本管理读书计划。"],
+      checkins: ["打卡", "记录日期、奖励金额、照片和备注。"],
+      rewards: ["奖励", "每个孩子独立统计奖励和兑换。"],
+      children: ["孩子", "添加孩子，管理孩子信息。"],
+    };
+
+    const app = document.getElementById("app");
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalBody = document.getElementById("modalBody");
+    const modalFooter = document.getElementById("modalFooter");
+
+    document.querySelectorAll("[data-auth-mode]").forEach(btn => btn.addEventListener("click", () => setAuthMode(btn.dataset.authMode)));
+    document.getElementById("loginForm").addEventListener("submit", submitAuth);
+    document.getElementById("forgotForm").addEventListener("submit", submitResetPassword);
+    document.getElementById("forgotLink").addEventListener("click", e => { e.preventDefault(); showForgotForm(); });
+    document.getElementById("backToLoginLink").addEventListener("click", e => { e.preventDefault(); hideForgotForm(); });
+    document.getElementById("logoutBtn").addEventListener("click", logout);
+    document.getElementById("changePasswordBtn").addEventListener("click", openChangePasswordModal);
+    document.getElementById("quickPlanBtn").addEventListener("click", openPlanModal);
+    document.getElementById("quickCheckinBtn").addEventListener("click", openCheckinModal);
+    document.getElementById("modalClose").addEventListener("click", closeModal);
+    modalBackdrop.addEventListener("click", event => { if (event.target === modalBackdrop) closeModal(); });
+    document.getElementById("navList").addEventListener("click", event => {
+      const btn = event.target.closest("[data-view]");
+      if (btn) switchView(btn.dataset.view);
+    });
+
+    const BASE = window.location.pathname.startsWith("/reading") ? "/reading" : "";
+    // 设置本地背景图
+    const brandPanel = document.querySelector(".brand-panel");
+    if (brandPanel) {
+      brandPanel.style.backgroundImage = `linear-gradient(rgba(18,74,82,.75), rgba(31,122,140,.74)), url("${BASE}/assets/brand-bg.jpg")`;
+    }
+
+    bootstrap();
+
+    /* ── Utilities ── */
+    function toast(message, type = "info") {
+      const el = document.createElement("div");
+      el.className = `toast ${type}`;
+      el.textContent = message;
+      document.getElementById("toastWrap").appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+
+    function showLoading(show) {
+      document.getElementById("loadingOverlay").classList.toggle("show", show);
+    }
+
+    function previewImage(url) {
+      const backdrop = document.getElementById("imgPreview");
+      document.getElementById("imgPreviewSrc").src = url;
+      backdrop.classList.add("show");
+    }
+
+    async function api(url, options = {}) {
+      const fullUrl = url.startsWith("/") ? BASE + url : url;
+      const headers = options.body instanceof FormData ? {} : { "Content-Type": "application/json" };
+      const res = await fetch(fullUrl, { credentials: "same-origin", headers, ...options });
+      if (!res.ok) {
+        let message = "请求失败";
+        try { message = (await res.json()).detail || message; } catch (e) {}
+        throw new Error(message);
+      }
+      return res.json();
+    }
+
+    function confirmAction(message) {
+      return new Promise(resolve => {
+        openModal("确认操作", `<p style="margin:0;font-size:16px;line-height:1.6">${message}</p>`,
+          `<button class="btn light" type="button" id="confirmCancel">取消</button><button class="btn danger" type="button" id="confirmOk">确认</button>`);
+        document.getElementById("confirmCancel").onclick = () => { closeModal(); resolve(false); };
+        document.getElementById("confirmOk").onclick = () => { closeModal(); resolve(true); };
+      });
+    }
+
+    /* ── Auth ── */
+    async function bootstrap() {
+      try {
+        state.me = await api("/api/me");
+        await loadData();
+        app.classList.add("signed-in", "ready");
+        renderShell();
+        render();
+      } catch (e) {
+        app.classList.remove("signed-in");
+        app.classList.add("ready");
+        setAuthMode("login");
+      }
+    }
+
+    function setAuthMode(mode) {
+      state.authMode = mode;
+      document.querySelectorAll("[data-auth-mode]").forEach(btn => btn.classList.toggle("active", btn.dataset.authMode === mode));
+      document.querySelectorAll(".register-only").forEach(item => item.classList.toggle("hidden", mode !== "register"));
+      document.querySelectorAll(".login-only").forEach(item => item.classList.toggle("hidden", mode !== "login"));
+      document.getElementById("authSubmitBtn").textContent = mode === "register" ? "注册并进入" : "登录";
+      document.getElementById("authHint").textContent = mode === "register" ? "首次使用请填写家庭信息，注册后自动进入打卡台。" : "已有账号只需输入手机号和密码。";
+      document.getElementById("familyName").required = mode === "register";
+      document.getElementById("parentName").required = mode === "register";
+      document.getElementById("defaultChildName").required = mode === "register";
+    }
+
+    async function submitAuth(event) {
+      event.preventDefault();
+      const btn = document.getElementById("authSubmitBtn");
+      btn.disabled = true;
+      const payload = {
+        phone: document.getElementById("phone").value,
+        password: document.getElementById("password").value
+      };
+      if (state.authMode === "register") {
+        payload.familyName = document.getElementById("familyName").value;
+        payload.parentName = document.getElementById("parentName").value;
+        payload.defaultChildName = document.getElementById("defaultChildName").value;
+      }
+      try {
+        showLoading(true);
+        state.me = await api(state.authMode === "register" ? "/api/auth/register" : "/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        await loadData();
+        app.classList.add("signed-in");
+        renderShell();
+        switchView("dashboard");
+        toast(state.authMode === "register" ? "注册成功，欢迎！" : "登录成功", "success");
+      } catch (e) {
+        toast(e.message, "error");
+      } finally {
+        showLoading(false);
+        btn.disabled = false;
+      }
+    }
+
+    async function logout() {
+      await api("/api/auth/logout", { method: "POST" });
+      app.classList.remove("signed-in");
+      state.me = null;
+      toast("已退出登录", "info");
+    }
+
+    /* ── Forgot / Change Password ── */
+    function showForgotForm() {
+      document.getElementById("loginForm").classList.add("hidden");
+      document.getElementById("forgotForm").classList.remove("hidden");
+    }
+
+    function hideForgotForm() {
+      document.getElementById("forgotForm").classList.add("hidden");
+      document.getElementById("loginForm").classList.remove("hidden");
+      document.getElementById("resetPhone").value = "";
+      document.getElementById("resetPassword").value = "";
+      document.getElementById("resetPassword2").value = "";
+    }
+
+    async function submitResetPassword(event) {
+      event.preventDefault();
+      const phone = document.getElementById("resetPhone").value;
+      const pw1 = document.getElementById("resetPassword").value;
+      const pw2 = document.getElementById("resetPassword2").value;
+      if (pw1 !== pw2) { toast("两次输入的密码不一致", "error"); return; }
+      const btn = document.getElementById("resetSubmitBtn");
+      btn.disabled = true;
+      try {
+        showLoading(true);
+        await api("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ phone, newPassword: pw1 }) });
+        toast("密码重置成功，请使用新密码登录", "success");
+        hideForgotForm();
+      } catch (e) {
+        toast(e.message, "error");
+      } finally {
+        showLoading(false);
+        btn.disabled = false;
+      }
+    }
+
+    function openChangePasswordModal() {
+      openModal("修改密码", `
+        <div class="form-grid">
+          <label>原密码<input id="oldPwd" type="password" required placeholder="当前密码"></label>
+          <label>新密码<input id="newPwd" type="password" required minlength="6" placeholder="至少6位"></label>
+          <label>确认新密码<input id="newPwd2" type="password" required placeholder="再次输入新密码"></label>
+        </div>
+      `, `<button class="btn light" type="button" id="cpCancel">取消</button><button class="btn" type="button" id="cpSubmit">确认修改</button>`);
+      document.getElementById("cpCancel").onclick = closeModal;
+      document.getElementById("cpSubmit").onclick = submitChangePassword;
+    }
+
+    async function submitChangePassword() {
+      const oldPwd = document.getElementById("oldPwd").value;
+      const newPwd = document.getElementById("newPwd").value;
+      const newPwd2 = document.getElementById("newPwd2").value;
+      if (newPwd !== newPwd2) { toast("两次输入的密码不一致", "error"); return; }
+      try {
+        await api("/api/auth/change-password", { method: "POST", body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd }) });
+        closeModal();
+        toast("密码修改成功", "success");
+      } catch (e) {
+        toast(e.message, "error");
+      }
+    }
+
+    /* ── Data ── */
+    async function loadData() {
+      const [children, plans, checkins, rewards, redemptions] = await Promise.all([
+        api("/api/children"),
+        api("/api/plans"),
+        api("/api/checkins"),
+        api("/api/rewards/children"),
+        api("/api/redemptions")
+      ]);
+      Object.assign(state, { children, plans, checkins, rewards, redemptions });
+    }
+
+    async function reloadAndRender(view) {
+      closeModal();
+      showLoading(true);
+      try {
+        await loadData();
+        switchView(view);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    /* ── Render ── */
+    function renderShell() {
+      document.getElementById("familyTitle").textContent = state.me.family.name;
+      const child = defaultChild();
+      document.getElementById("userTitle").textContent = `${state.me.user.displayName} · 主页 ${child ? child.name : "未设置孩子"}`;
+    }
+
+    function switchView(view) {
+      state.view = view;
+      document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+      render();
+    }
+
+    function render() {
+      const [title, subtitle] = viewMeta[state.view];
+      document.getElementById("viewTitle").textContent = title;
+      document.getElementById("viewSubtitle").textContent = subtitle;
+      document.querySelectorAll(".view").forEach(view => view.classList.add("hidden"));
+      document.getElementById(`${state.view}View`).classList.remove("hidden");
+      renderShell();
+      if (state.view === "dashboard") renderDashboard();
+      if (state.view === "plans") renderPlans();
+      if (state.view === "checkins") renderCheckins();
+      if (state.view === "rewards") renderRewards();
+      if (state.view === "children") renderChildren();
+    }
+
+    function renderDashboard() {
+      const child = defaultChild();
+      const balance = childReward(child && child.id).balanceAmount || "0.00";
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById("dashboardView").innerHTML = `
+        <div class="stats-grid">
+          ${statCard("进行中计划", state.plans.filter(p => p.status === "active").length)}
+          ${statCard("累计打卡", state.checkins.length)}
+          ${statCard("今日打卡", state.checkins.filter(c => c.checkinDate === today).length)}
+          ${statCard(`${child ? child.name : "孩子"}可兑换`, money(balance))}
+        </div>
+        <div class="grid-two">
+          <div class="panel">
+            <div class="panel-title"><h3>活跃计划</h3><button class="btn secondary sm" type="button" onclick="openPlanModal()">新建</button></div>
+            <div class="cards-grid">${state.plans.slice(0, 4).map(planCard).join("") || empty("还没有读书计划。")}</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><h3>最近打卡</h3><button class="btn sm" type="button" onclick="openCheckinModal()">打卡</button></div>
+            ${state.checkins.length ? checkinTable(state.checkins.slice(0, 6)) : empty("还没有打卡记录。")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPlans() {
+      document.getElementById("plansView").innerHTML = `
+        <div class="panel">
+          <div class="panel-title"><h3>读书计划</h3><button class="btn" type="button" onclick="openPlanModal()">新建计划</button></div>
+          <div class="cards-grid">${state.plans.map(planCard).join("") || empty("请先创建一个读书计划。")}</div>
+        </div>
+      `;
+    }
+
+    function renderCheckins() {
+      document.getElementById("checkinsView").innerHTML = `
+        <div class="panel">
+          <div class="panel-title"><h3>打卡记录</h3><button class="btn" type="button" onclick="openCheckinModal()">新增打卡</button></div>
+          ${state.checkins.length ? checkinTable(state.checkins) : empty("暂无打卡记录。")}
+        </div>
+      `;
+    }
+
+    function renderRewards() {
+      document.getElementById("rewardsView").innerHTML = `
+        <div class="cards-grid">
+          ${state.rewards.map(item => `
+            <article class="stat-card">
+              <span>${esc(item.childName)}</span>
+              <strong>${money(item.balanceAmount)}</strong>
+              <div class="meta-row" style="margin-top:12px">
+                <span>累计 ${money(item.earnedAmount)}</span>
+                <span>已兑 ${money(item.redeemedAmount)}</span>
+                <span>${item.redemptionCount} 次兑换</span>
+              </div>
+            </article>
+          `).join("") || empty("请先添加孩子。")}
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h3>兑换记录</h3><button class="btn warn" type="button" onclick="openRedeemModal()">记录兑换</button></div>
+          ${state.redemptions.length ? redemptionTable(state.redemptions) : empty("暂无兑换记录。")}
+        </div>
+      `;
+    }
+
+    function renderChildren() {
+      document.getElementById("childrenView").innerHTML = `
+        <div class="panel">
+          <div class="panel-title"><h3>我的孩子</h3><button class="btn" type="button" onclick="openChildModal()">添加孩子</button></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>孩子</th><th>出生日期</th><th>主页展示</th><th>累计打卡</th><th>累计奖励</th><th>操作</th></tr></thead>
+              <tbody>
+                ${state.children.map(child => {
+                  const reward = childReward(child.id);
+                  const count = state.checkins.filter(item => item.childId === child.id).length;
+                  return `<tr>
+                    <td>${esc(child.name)}</td>
+                    <td>${child.birthDate || "-"}</td>
+                    <td>${child.isDefault ? '<span class="badge orange">主页展示</span>' : ""}</td>
+                    <td>${count}</td>
+                    <td>${money(reward.earnedAmount || 0)}</td>
+                    <td class="actions">
+                      ${!child.isDefault ? `<button class="btn secondary sm" type="button" onclick="setDefaultChild('${child.id}')">设为首页</button>` : ""}
+                      <button class="btn light sm" type="button" onclick="openChildModal('${child.id}')">编辑</button>
+                      <button class="btn danger sm" type="button" onclick="deleteChild('${child.id}')">删除</button>
+                    </td>
+                  </tr>`;
+                }).join("") || `<tr><td colspan="6">${empty("还没有添加孩子。")}</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ── Card / Table helpers ── */
+    function planCard(plan) {
+      const child = state.children.find(item => item.id === plan.childId);
+      const percent = Math.min(100, Math.round((plan.checkinCount || 0) / Math.max(Number(plan.targetCheckins || 1), 1) * 100));
+      return `
+        <article class="item-card">
+          <div class="item-head">
+            <div><h3>${esc(plan.title)}</h3><div class="muted">${esc(plan.bookName || "未填写书名")}</div></div>
+            <span class="badge blue">${plan.status === "completed" ? "已完成" : "进行中"}</span>
+          </div>
+          <div class="meta-row"><span>${esc(child ? child.name : "未知孩子")}</span><span>${plan.startDate || "未定"} 至 ${plan.endDate || "未定"}</span><span>每次 ${money(plan.rewardPerCheckin)}</span></div>
+          <div><div class="meta-row"><span>${plan.checkinCount || 0}/${plan.targetCheckins || 0} 次</span><span>${percent}%</span></div><div class="progress-track"><div class="progress-bar" style="width:${percent}%"></div></div></div>
+          <p class="muted" style="margin:0;line-height:1.55">${esc(plan.note || "无备注")}</p>
+          <div class="actions">
+            <button class="btn sm" type="button" onclick="openCheckinModal('${plan.id}')">打卡</button>
+            <button class="btn secondary sm" type="button" onclick="openPlanModal('${plan.id}')">编辑</button>
+            <button class="btn light sm" type="button" onclick="togglePlan('${plan.id}')">${plan.status === "completed" ? "继续" : "完成"}</button>
+            <button class="btn danger sm" type="button" onclick="deletePlan('${plan.id}')">删除</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function checkinTable(rows) {
+      return `
+        <div class="table-wrap"><table>
+          <thead><tr><th>日期</th><th>计划</th><th>孩子</th><th>时长</th><th>奖励</th><th>照片</th><th>备注</th><th>操作</th></tr></thead>
+          <tbody>${rows.map(item => {
+            const plan = state.plans.find(p => p.id === item.planId);
+            const child = state.children.find(c => c.id === item.childId);
+            return `<tr>
+              <td>${item.checkinDate}</td>
+              <td>${esc(plan ? plan.title : "已删除计划")}</td>
+              <td>${esc(child ? child.name : "未知孩子")}</td>
+              <td>${item.minutes} 分钟</td>
+              <td>${money(item.rewardAmount)}</td>
+              <td><div class="thumbs">${(item.photos || []).map(p => `<img src="${BASE}${p.url}" alt="打卡照片" onclick="previewImage('${BASE}${p.url}')">`).join("") || "无"}</div></td>
+              <td>${esc(item.note || "")}</td>
+              <td><button class="btn danger sm" type="button" onclick="deleteCheckin('${item.id}')">删除</button></td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table></div>
+      `;
+    }
+
+    function redemptionTable(rows) {
+      return `<div class="table-wrap"><table><thead><tr><th>日期</th><th>孩子</th><th>兑换金额</th><th>备注</th><th>操作</th></tr></thead><tbody>
+        ${rows.map(row => {
+          const child = state.children.find(item => item.id === row.childId);
+          return `<tr>
+            <td>${row.redemptionDate}</td>
+            <td>${esc(child ? child.name : "未知孩子")}</td>
+            <td>${money(row.amount)}</td>
+            <td>${esc(row.note || "")}</td>
+            <td><button class="btn danger sm" type="button" onclick="deleteRedemption('${row.id}')">删除</button></td>
+          </tr>`;
+        }).join("")}
+      </tbody></table></div>`;
+    }
+
+    /* ── Modals ── */
+    function openPlanModal(planId = "") {
+      if (!state.children.length) return openChildModal();
+      const plan = planId ? state.plans.find(p => p.id === planId) : null;
+      const child = plan ? state.children.find(c => c.id === plan.childId) : (defaultChild() || state.children[0]);
+      const isEdit = !!plan;
+      openModal(isEdit ? "编辑读书计划" : "新建读书计划", `
+        <form id="planForm" class="form-grid">
+          <label>计划或任务名称<input name="title" required placeholder="例如 《夏洛的网》阅读计划" value="${esc(plan ? plan.title : "")}"></label>
+          <label>书本或主题<input name="bookName" placeholder="例如 夏洛的网、古诗背诵" value="${esc(plan ? plan.bookName || "" : "")}"></label>
+          <label>选择孩子<select name="childId">${state.children.map(c => `<option value="${c.id}" ${c.id === (plan ? plan.childId : child.id) ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+          <div class="grid-two"><label>开始日期<input name="startDate" type="date" value="${plan ? plan.startDate || "" : today()}"></label><label>结束日期<input name="endDate" type="date" value="${plan ? plan.endDate || "" : ""}"></label></div>
+          <div class="grid-two"><label>目标打卡次数<input name="targetCheckins" type="number" min="1" value="${plan ? plan.targetCheckins : 21}"></label><label>默认奖励金额<input name="rewardPerCheckin" type="number" min="0" step="0.01" value="${plan ? plan.rewardPerCheckin : 1}"></label></div>
+          <label>备注<textarea name="note" placeholder="阅读要求、陪伴方式、奖励规则等">${esc(plan ? plan.note || "" : "")}</textarea></label>
+        </form>
+      `, `<button class="btn light" type="button" onclick="closeModal()">取消</button><button class="btn" type="submit" form="planForm">${isEdit ? "保存修改" : "保存计划"}</button>`);
+      document.getElementById("planForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        data.targetCheckins = Number(data.targetCheckins || 1);
+        data.rewardPerCheckin = data.rewardPerCheckin || "0";
+        data.startDate = data.startDate || null;
+        data.endDate = data.endDate || null;
+        try {
+          showLoading(true);
+          if (isEdit) {
+            await api(`/api/plans/${plan.id}`, { method: "PATCH", body: JSON.stringify(data) });
+            toast("计划已更新", "success");
+          } else {
+            await api("/api/plans", { method: "POST", body: JSON.stringify(data) });
+            toast("计划已创建", "success");
+          }
+          await reloadAndRender("plans");
+        } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+      });
+    }
+
+    function openCheckinModal(planId = "") {
+      if (!state.plans.length) return openPlanModal();
+      const plan = state.plans.find(p => p.id === planId) || state.plans[0];
+      const child = state.children.find(c => c.id === plan.childId);
+      const childName = child ? child.name : "未知孩子";
+      openModal("新增读书打卡", `
+        <form id="checkinForm" class="form-grid">
+          <label>读书计划<select name="planId" id="checkinPlan">${state.plans.map(p => {
+            const pc = state.children.find(c => c.id === p.childId);
+            return `<option value="${p.id}" ${p.id === plan.id ? "selected" : ""}>${esc(p.title)}（${esc(pc ? pc.name : "")}）</option>`;
+          }).join("")}</select></label>
+          <div class="notice" id="checkinChildInfo" style="display:flex;align-items:center;gap:8px"><strong>打卡孩子：</strong><span id="checkinChildName">${esc(childName)}</span><input type="hidden" name="childId" id="checkinChildId" value="${plan.childId}"></div>
+          <div class="grid-two"><label>打卡日期<input name="checkinDate" type="date" value="${today()}" required></label><label>阅读时长<input name="minutes" type="number" min="0" value="20"></label></div>
+          <label>奖励金额<input name="rewardAmount" id="checkinReward" type="number" min="0" step="0.01" value="${plan.rewardPerCheckin}"></label>
+          <label>照片记录<input name="photos" type="file" accept="image/*" multiple></label>
+          <label>备注<textarea name="note" placeholder="阅读内容、表现、家长反馈等"></textarea></label>
+        </form>
+      `, `<button class="btn light" type="button" onclick="closeModal()">取消</button><button class="btn" type="submit" form="checkinForm">保存打卡</button>`);
+      document.getElementById("checkinPlan").addEventListener("change", event => {
+        const selected = state.plans.find(p => p.id === event.target.value);
+        if (selected) {
+          document.getElementById("checkinReward").value = selected.rewardPerCheckin;
+          document.getElementById("checkinChildId").value = selected.childId;
+          const sc = state.children.find(c => c.id === selected.childId);
+          document.getElementById("checkinChildName").textContent = sc ? sc.name : "未知孩子";
+        }
+      });
+      document.getElementById("checkinForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const fd = new FormData(event.target);
+        try {
+          showLoading(true);
+          await api("/api/checkins", { method: "POST", body: fd });
+          toast("打卡成功！", "success");
+          await reloadAndRender("checkins");
+        } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+      });
+    }
+
+    function openRedeemModal() {
+      if (!state.children.length) return openChildModal();
+      const child = defaultChild() || state.children[0];
+      openModal("记录奖励兑换", `
+        <form id="redeemForm" class="form-grid">
+          <div class="notice" id="redeemBalance">当前可兑换余额：${money(childReward(child.id).balanceAmount || 0)}</div>
+          <label>兑换孩子<select name="childId" id="redeemChild">${state.children.map(c => `<option value="${c.id}" ${c.id === child.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+          <div class="grid-two"><label>兑换日期<input name="redemptionDate" type="date" value="${today()}" required></label><label>兑换金额<input name="amount" type="number" min="0" step="0.01" required></label></div>
+          <label>备注<textarea name="note" placeholder="例如 兑换文具、图书、零花钱等"></textarea></label>
+        </form>
+      `, `<button class="btn light" type="button" onclick="closeModal()">取消</button><button class="btn warn" type="submit" form="redeemForm">保存兑换</button>`);
+      document.getElementById("redeemChild").addEventListener("change", event => {
+        document.getElementById("redeemBalance").textContent = `当前可兑换余额：${money(childReward(event.target.value).balanceAmount || 0)}`;
+      });
+      document.getElementById("redeemForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        try {
+          showLoading(true);
+          await api("/api/redemptions", { method: "POST", body: JSON.stringify(data) });
+          toast("兑换记录已保存", "success");
+          await reloadAndRender("rewards");
+        } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+      });
+    }
+
+    function openChildModal(childId = "") {
+      const child = childId ? state.children.find(c => c.id === childId) : null;
+      const isEdit = !!child;
+      openModal(isEdit ? "编辑孩子信息" : "添加孩子", `
+        <form id="childForm" class="form-grid">
+          <label>孩子姓名<input name="name" required placeholder="例如 琪琪、小宇" value="${esc(child ? child.name : "")}"></label>
+          <label>出生日期<input name="birthDate" type="date" value="${child ? child.birthDate || "" : ""}"></label>
+          ${!isEdit ? `<label><span><input name="isDefault" type="checkbox" ${state.children.length ? "" : "checked"}> 设为首页孩子</span></label>` : ""}
+        </form>
+      `, `<button class="btn light" type="button" onclick="closeModal()">取消</button><button class="btn" type="submit" form="childForm">${isEdit ? "保存修改" : "保存孩子"}</button>`);
+      document.getElementById("childForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        try {
+          showLoading(true);
+          if (isEdit) {
+            await api(`/api/children/${child.id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ name: form.get("name"), birthDate: form.get("birthDate") || null })
+            });
+            toast("孩子信息已更新", "success");
+          } else {
+            await api("/api/children", {
+              method: "POST",
+              body: JSON.stringify({ name: form.get("name"), birthDate: form.get("birthDate") || null, isDefault: form.has("isDefault") })
+            });
+            toast("孩子已添加", "success");
+          }
+          await reloadAndRender("children");
+        } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+      });
+    }
+
+    /* ── Actions ── */
+    async function setDefaultChild(childId) {
+      try {
+        showLoading(true);
+        await api(`/api/children/${childId}/default`, { method: "POST" });
+        toast("已设为首页孩子", "success");
+        await reloadAndRender("children");
+      } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+    }
+
+    async function deleteChild(childId) {
+      const child = state.children.find(c => c.id === childId);
+      const ok = await confirmAction(`确定要删除孩子 <strong>${esc(child ? child.name : "")}</strong> 吗？相关历史数据将保留。`);
+      if (!ok) return;
+      try {
+        showLoading(true);
+        await api(`/api/children/${childId}`, { method: "DELETE" });
+        toast("孩子已删除", "success");
+        await reloadAndRender("children");
+      } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+    }
+
+    async function togglePlan(planId) {
+      try {
+        showLoading(true);
+        await api(`/api/plans/${planId}/complete`, { method: "POST" });
+        await reloadAndRender("plans");
+      } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+    }
+
+    async function deletePlan(planId) {
+      const plan = state.plans.find(p => p.id === planId);
+      const ok = await confirmAction(`确定要删除计划 <strong>${esc(plan ? plan.title : "")}</strong> 吗？该计划下的打卡记录将保留。`);
+      if (!ok) return;
+      try {
+        showLoading(true);
+        await api(`/api/plans/${planId}`, { method: "DELETE" });
+        toast("计划已删除", "success");
+        await reloadAndRender("plans");
+      } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+    }
+
+    async function deleteCheckin(checkinId) {
+      const ok = await confirmAction("确定要删除这条打卡记录吗？删除后无法恢复。");
+      if (!ok) return;
+      try {
+        showLoading(true);
+        await api(`/api/checkins/${checkinId}`, { method: "DELETE" });
+        toast("打卡记录已删除", "success");
+        await reloadAndRender("checkins");
+      } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+    }
+
+    async function deleteRedemption(redemptionId) {
+      const ok = await confirmAction("确定要删除这条兑换记录吗？删除后余额将恢复。");
+      if (!ok) return;
+      try {
+        showLoading(true);
+        await api(`/api/redemptions/${redemptionId}`, { method: "DELETE" });
+        toast("兑换记录已删除", "success");
+        await reloadAndRender("rewards");
+      } catch (e) { toast(e.message, "error"); } finally { showLoading(false); }
+    }
+
+    /* ── Modal helpers ── */
+    function openModal(title, body, footer) {
+      modalTitle.textContent = title;
+      modalBody.innerHTML = body;
+      modalFooter.innerHTML = footer;
+      modalBackdrop.classList.add("open");
+      modalBackdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove("open");
+      modalBackdrop.setAttribute("aria-hidden", "true");
+      modalBody.innerHTML = "";
+      modalFooter.innerHTML = "";
+    }
+
+    /* ── Small helpers ── */
+    function defaultChild() {
+      return state.children.find(child => child.id === state.me.defaultChildId) || state.children.find(child => child.isDefault) || state.children[0] || null;
+    }
+
+    function childReward(childId) {
+      return state.rewards.find(item => item.childId === childId) || {};
+    }
+
+    function statCard(label, value) {
+      return `<div class="stat-card"><span>${label}</span><strong>${value}</strong></div>`;
+    }
+
+    function empty(text) {
+      return `<div class="empty">${text}</div>`;
+    }
+
+    function today() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function money(value) {
+      return `¥${Number(value || 0).toFixed(2)}`;
+    }
+
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[char]));
+    }
+  </script>
+</body>
+</html>
